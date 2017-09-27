@@ -7,11 +7,11 @@ from telethon import TelegramClient
 from telethon.tl.types import UpdateShortChatMessage, UpdateShortMessage, Updates, UpdateNewMessage
 #from pprint import pprint
 
-from apiconfig import *
+from apiconfig import API_HASH, API_ID
 
 from botcommands import Comms
 
-from classes import Building
+from customclasses import Building, building_parser
 
 LAST_COMM = Comms.MENU.value
 NEXT_COMM = Comms.MENU.value
@@ -24,9 +24,7 @@ CLIENT = TelegramClient('session_name', API_ID, API_HASH)
 CLIENT.connect()
 
 if not CLIENT.is_user_authorized():
-    # CLIENT.sign_in(phone=phone)
-    #CLIENT.sign_in(code=input('Digite o código: '))
-
+    PHONE = input('Digite o telefone no formato +55...: ')
     CLIENT.send_code_request(PHONE)
     CLIENT.sign_in(PHONE, input('Digite o código: '))
 

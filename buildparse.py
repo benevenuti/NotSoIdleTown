@@ -1,7 +1,5 @@
 """Testing parser unit"""
-import re
-from customclasses import Building
-
+from customclasses import building_parser
 
 MSG = "\
 Construções\n\
@@ -46,34 +44,5 @@ Melhorar: 222.63 K🌾\n\
 Preço: 223.35 K🌳/up_fa\n\
 "
 
-
-def building_parser(msg):
-    # Cleaning
-    msg = msg.replace('➖➖➖➖➖➖', '').split('\n\n')
-    del msg[0]
-    del msg[0]
-
-    # Reference
-    l_pairs = [('🏯', 0, '/up_w'), ('🏹', 1, '/up_t'), ('📦', 2, '/up_st'),
-               ('🌳', 3, '/up_lm'), ('💰', 4, '/up_gm'), ('🌾', 5, '/up_fa')]
-
-    # Processing
-    b_list = []
-    for idx, obj in enumerate(msg):
-        # print(idx)
-        # print(obj)
-        m = re.findall(
-            "(?smx)([" + l_pairs[idx][0] + "]{1})(.+?)\ \(Lvl\ ([0-9]+)\).+:\ ([0-9.]+)\ (K|M)🌳\ *(" + l_pairs[idx][2] + ")", obj)
-        #print(m[0][0] + " " + m[0][1])
-        print(m)
-        price = float(m[0][3])
-        if m[0][4] in 'K':
-            price = price * 1000
-
-        print(price)
-        bn = Building(m[0][0], m[0][1], idx, m[0][2], price, m[0][5])
-        b_list.append(bn)
-    return b_list
-
-
-building_parser(MSG)
+build_list = building_parser(MSG)
+print(build_list)

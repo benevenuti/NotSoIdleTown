@@ -1,5 +1,41 @@
 """Keep needed classes for bot chat"""
 
+import re
+
+
+def building_parser(msg):
+    """Parses a string message sent from Bot when asked for buildings"""
+    # Cleaning
+    msg = msg.replace('➖➖➖➖➖➖', '').split('\n\n')
+    del msg[0]
+    del msg[0]
+
+    # Reference
+    grp_l = [('🏯', 0, '/up_w'), ('🏹', 1, '/up_t'), ('📦', 2, '/up_st'),
+             ('🌳', 3, '/up_lm'), ('💰', 4, '/up_gm'), ('🌾', 5, '/up_fa')]
+
+    # Processing
+    building_list = []
+    for idx, obj in enumerate(msg):
+        regex = "(?smx)" + "([" + grp_l[idx][0] + \
+            r"]{1})(.+?)\ \(Lvl\ ([0-9]+)\).+:\ ([0-9.]+)\ (K|M)🌳\ *(" + \
+            grp_l[idx][2] + ")"
+
+        match = re.findall(regex, obj)
+
+        price = float(match[0][3])
+        if match[0][4] == 'K':
+            price = price * 1000
+
+        if match[0][4] == 'M':
+            price = price * 1000 * 1000
+
+        # print(price)
+        build = Building(match[0][0], match[0][1], idx,
+                         match[0][2], price, match[0][5])
+        building_list.append(build)
+    return building_list
+
 
 class Building():
     """Keep track os buildings"""
