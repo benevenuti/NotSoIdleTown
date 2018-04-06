@@ -6,13 +6,14 @@ import units
 import sys
 import random
 import _thread
+import config
 
 from decimal import Decimal
 from collections import OrderedDict
 
-api_id = 999999
-api_hash = 'abcdef0123456789abcdef0123456789'
-phone_number = '+55 54 9 9999 9999'
+api_id = config.api_id
+api_hash = config.api_hash
+phone_number = config.phone_number
 
 IDLE_TOWN_ID = 271141703
 
