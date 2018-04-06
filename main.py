@@ -10,9 +10,9 @@ import _thread
 from decimal import Decimal
 from collections import OrderedDict
 
-api_id = 137964
-api_hash = 'f35ce3f4fe0cc9e4b8ddd8024cbd245e'
-phone_number = '+55 54 9 9131 6790'
+api_id = 999999
+api_hash = 'abcdef0123456789abcdef0123456789'
+phone_number = '+55 54 9 9999 9999'
 
 IDLE_TOWN_ID = 271141703
 
