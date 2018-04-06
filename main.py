@@ -1,179 +1,320 @@
-# coding=utf-8
-import time
-import random
-import re
-
-from telethon import TelegramClient
+from telethon import TelegramClient, events
 from telethon.tl.types import UpdateShortChatMessage, UpdateShortMessage, Updates, UpdateNewMessage
-#from pprint import pprint
+import re
+import time
+import units
+import sys
+import random
+import _thread
 
-from apiconfig import API_HASH, API_ID
+from decimal import Decimal
+from collections import OrderedDict
 
-from botcommands import Comms
+api_id = 137964
+api_hash = 'f35ce3f4fe0cc9e4b8ddd8024cbd245e'
+phone_number = '+55 54 9 9131 6790'
 
-from customclasses import Building, building_parser
+IDLE_TOWN_ID = 271141703
 
-LAST_COMM = Comms.MENU.value
-NEXT_COMM = Comms.MENU.value
+client = TelegramClient('session_name', api_id, api_hash,
+                        update_workers=2, spawn_read_thread=False)
+client.start()
 
-# botname
-BOT_NAME = '@IdleTownBot'
+client.updates.workers = 2
 
-CLIENT = TelegramClient('session_name', API_ID, API_HASH)
+city = {}
+build = {}
+equip = {}
 
-CLIENT.connect()
+MENU = -1
 
-if not CLIENT.is_user_authorized():
-    PHONE = input('Digite o telefone no formato +55...: ')
-    CLIENT.send_code_request(PHONE)
-    CLIENT.sign_in(PHONE, input('Digite o código: '))
+oper_count = 0
 
-doAttack = False
-doSearchOpponent = True
-
-level = 0
-myLvl = 0
-qtdRecursoAlvo = 120
-nivelAlvo = 38
-
-# Prices
-
-def valor(recurso, msg):
-    """Faz o parse do valor de cada item do usuário a ser atacado"""
-    m = re.search(recurso + ': ([0-9]*\.[0-9]*) ([K|M])', msg)    
-    valor = 0.0
-    if m != None:
-        valor = float(m.group(1))
-        if m.group(2) == 'M':
-            valor = valor * 1000
-
-    return valor
+build_count = 0
+equip_count = 0
 
 
-def sprint(string):
-    """Safe Print (handle UnicodeEncodeErrors on some terminals)"""
+def re_init(a, b):
+    global MENU
+    while 1:
+        t = random.randrange(120, 180)
+        time.sleep(t)
+        MENU = 0
+        print('== Acordando depois de dormir por ' + str(t) + ' segundos...')
+        send_town('Menu 📜')
+
+
+try:
+    _thread.start_new_thread(re_init, (0, 0))
+except Exception as e:
+    print("!! Não possível iniciar a thread : " + str(e))
+
+
+def get_city(m):
+    s = re.search(
+        '(?s)Cidade (.*?) .*?\(Lvl ([0-9]*)\).*?Arena Rank: ([0-9]+).*?Energia: ([0-9]+)/100.*?Stamina: ([0-9]+)/5.*?Madeira: ([0-9.]+) ([A-Z]*)/hora.*?Ouro: ([0-9.]+) ([A-Z]*)/hora', m)
+    l = ['name', 'lvl', 'rank', 'energy', 'stamina',
+         'wood_cst', 'wood_mlt', 'gold_cst', 'gold_mlt']
+    r = {}
+    for i, g in enumerate(l):
+        r[g] = s.group(i+1)
+        if not (g in ['name']):
+            try:
+                r[g] = int(r[g])
+            except ValueError:
+                pass
+    return r
+
+
+def send_town(msg):
     try:
-        print(string)
-    except UnicodeEncodeError:
-        string = string.encode('utf-8', errors='ignore')\
-                       .decode('ascii', errors='ignore')
-        print(string)
-
-# DETECÇÃO DE RECURSOS
-def detect_resource(res_name, msg):
-    """Detecta o recurso parametrizado"""
-    m = re.findall(res_name + ":\ ([0-9.]+)\ *([KM]*)", msg)
-    myResource = float(m[0][0])
-    myProduction = float(m[1][0])
-    if m[0][1] == 'K':
-        myResource = myResource * 1000
-    if m[1][1] == 'K':
-        myProduction = myProduction * 1000
-    sprint("Armazém - " + res_name +
-           " {} - Produção {}".format(myResource, myProduction))
-    return [myResource, myProduction]
+        print('>> ' + msg)
+        time.sleep(random.randrange(1, 2))
+        client.send_message('@IdleTownBot', msg)
+    except Exception as e:
+        print('!! Não foi possível enviar a mensagem ' + msg + ' : ' + str(e))
 
 
+def get_build(obj, m):
+    s = re.search(
+        '(?s)' + obj + ' \(Lvl ([0-9]+?)\).*?Custo: ([0-9.]+) ([A-Z]*).([a-z_/]+)', m)
+    lvl = s.group(1)
+    cst = s.group(2)
+    mlt = s.group(3)
+    cmd = s.group(4)
+    return {'obj': obj, 'lvl': int(lvl), 'cst': Decimal(cst) * Decimal(units.u[mlt]), 'cst_s': cst + ' ' + mlt, 'cmd': cmd}
 
 
-def update_handler(update_object):
-    """Motor de detecção de atividade"""
-    global doAttack
-    global doSearchOpponent
-    global myLvl
-    global LAST_COMM
-    global NEXT_COMM
-    global nivelAlvo
+def get_equip(obj, m):
+    s = re.search(
+        '(?s)' + obj + ' \(Lvl ([0-9]+?)\).*?Custo: ([0-9.]+) ([A-Z]*).[ ]*([a-z_/]+)', m)
+    lvl = s.group(1)
+    cst = s.group(2)
+    mlt = s.group(3)
+    cmd = s.group(4)
+    return {'obj': obj, 'lvl': int(lvl), 'cst': Decimal(cst) * Decimal(units.u[mlt]), 'cst_s': cst + ' ' + mlt, 'cmd': cmd}
 
-    global myWood
-    global myGold
-    global myFood
-    
-    if isinstance(update_object, UpdateShortMessage):
-        if update_object.out:
-            sprint('You sent {} to user #{}'.format(
-                update_object.message, update_object.user_id))
+
+def get_wood(m):
+    s = re.search('(?s)Você tem \(([0-9.]+) ([A-Z]*)🌳\) de Madeira', m)
+    v = s.group(1)
+    t = s.group(2)
+    return {'cst': Decimal(float(v) * units.u[t]), 'cst_s': v + ' ' + t}
+
+
+def get_gold(m):
+    s = re.search('(?s)Você tem \(([0-9.]+) ([A-Z]*)💰\) de Ouro', m)
+    v = s.group(1)
+    t = s.group(2)
+    return {'cst': Decimal(float(v) * units.u[t]), 'cst_s': v + ' ' + t}
+
+
+def get_enemy(m):
+    s = re.search(
+        '(?s)Oponente:\n(.*?) \(Lvl ([0-9]+?)\)\nArena Rank: ([0-9]+?)\nID: (.+)\nClã: (.+)$', m)
+    name = s.group(1)
+    lvl = s.group(2)
+    rank = s.group(3)
+    ID = s.group(4)
+    clan = s.group(5)
+    return {'name': name, 'lvl': int(lvl), 'rank': int(rank), 'ID': ID, 'clan': clan}
+
+
+@client.on(events.NewMessage())
+def my_all_handler(event):
+    global MENU
+    global IDLE_TOWN_ID
+
+    from_id = -1
+
+    if MENU == 9:
+        try:
+            from_id = event.message.from_id
+        except Exception as e:
+            print('!! Erro ao identificar from_id: ' + str(e))
+            return
+
+        if IDLE_TOWN_ID == from_id:
+            msg = event.message.message
+            print(msg)
+
+
+@client.on(events.NewMessage(incoming=True, chats=('Idle Town')))
+def my_event_handler(event):
+
+    global city
+    global build
+    global equip
+    global build_count
+    global equip_count
+
+    global MENU
+
+    global IDLE_TOWN_ID
+
+    from_id = -1
+
+    try:
+        from_id = event.message.from_id
+    except Exception as e:
+        print('!! Erro ao identificar from_id: ' + str(e))
+
+    try:
+        if IDLE_TOWN_ID == from_id:
+
+            msg = event.message.message
+            # print(event.stringify())
+
+            if MENU <= 0:
+
+                city = get_city(msg)
+
+                print(city)
+
+                if (city['name'] == ''):
+                    send_town('Menu 📜')
+                    MENU = 0
+                else:
+                    send_town('Construções 🏢')
+                    MENU = 1
+            elif MENU == 1:
+                if 'melhorado com Sucesso' in msg:
+                    build_count += 1
+
+                    if build_count >= 4:
+                        MENU = 2
+                        build_count = 0
+                        send_town('Menu 📜')
+                    else:
+                        send_town('Atualizar')
+                else:
+                    for i in ['Arsenal', 'Ferreiro', 'Serraria', 'Mina de Ouro']:
+                        build[i] = get_build(i, msg)
+
+                    wood = get_wood(msg)
+                    build = OrderedDict(
+                        sorted(build.items(), key=lambda x: x[1]['lvl']))
+                    up_obj = next(iter(build.items()))[1]
+                    cost = up_obj['cst']
+
+                    if wood['cst'].compare(cost) == Decimal('1'):
+                        cmd = up_obj['cmd']
+                        print('== Melhorando : ' + up_obj['obj'] + ' ' +
+                              up_obj['cst_s'] + ' para Lvl ' + str(up_obj['lvl']+1))
+                        send_town(cmd)
+                    else:
+                        print('== Pouca madeira: ' +
+                              up_obj['obj'] + ' ^^ ' + up_obj['cst_s'] + ' > ' + wood['cst_s'])
+                        MENU = 2
+                        send_town('Menu 📜')
+
+            elif MENU == 2:
+                if 'Cidade ' + city['name'] in msg:
+                    send_town('Herói 💂')
+                elif 'Status do Herói' in msg:
+                    send_town('Equipamento')
+                elif 'melhorado com Sucesso' in msg:
+                    equip_count += 1
+
+                    if equip_count >= 4:
+                        MENU = 3
+                        equip_count = 0
+                        send_town('Menu 📜')
+                    else:
+                        send_town('Atualizar')
+                elif 'Equipamentos' in msg:
+                    for i in ['Espada', 'Escudo', 'Capacete', 'Luvas', 'Botas']:
+                        equip[i] = get_equip(i, msg)
+
+                    gold = get_gold(msg)
+                    equip = OrderedDict(
+                        sorted(equip.items(), key=lambda x: x[1]['lvl']))
+                    up_obj = next(iter(equip.items()))[1]
+                    cost = up_obj['cst']
+
+                    if gold['cst'].compare(cost) == Decimal('1'):
+                        cmd = up_obj['cmd']
+                        print('== Melhorando : ' + up_obj['obj'] + ' ' +
+                              up_obj['cst_s'] + ' para Lvl ' + str(up_obj['lvl']+1))
+                        send_town(cmd)
+                    else:
+                        print(
+                            '== Pouco ouro: ' + up_obj['obj'] + ' ^^ ' + up_obj['cst_s'] + ' > ' + gold['cst_s'])
+                        MENU = 3
+                        send_town('Menu 📜')
+            elif MENU == 3:
+                # print(msg)
+                if 'Cidade ' + city['name'] in msg:
+                    send_town('Batalhar ⚔')
+                elif 'Batalhas\n/arena' in msg:
+                    if city['energy'] >= 90:
+                        send_town('/bosses')
+                    else:
+                        MENU = 4
+                        print('vv Pouca energia (' +
+                              str(city['energy']) + '), não vou enfrentar chefão')
+                        send_town('Batalhar ⚔')
+                elif 'Chefões' in msg:
+                    MENU = 9
+                    send_town('Atacar Max')
+                elif 'Você matou o chefão' in msg:
+                    MENU = 4
+                    send_town('Batalhar ⚔')
+
+            elif MENU == 4:
+                # print(msg)
+                if 'Cidade ' + city['name'] in msg:
+                    send_town('Batalhar ⚔')
+                elif 'Batalhas\n/arena' in msg:
+                    if city['stamina'] > 0:
+                        send_town('/arena')
+                    else:
+                        MENU = 0
+                        print('vv Pouca stamina (' +
+                              str(city['energy']) + '), não vou entrar na arena')
+                        print('== HALT')
+                elif msg.startswith('Arena\n'):
+                    c = random.choice(['/rMatch', '/nMatch'])
+                    send_town(c)
+                elif msg.startswith('Ataque Ranqueado'):
+                    enemy = get_enemy(msg)
+                    if enemy['lvl'] <= city['lvl']:
+                        print('^^ Atacando ' +
+                              enemy['name'] + ' Lvl ' + str(enemy['lvl']))
+                        MENU = 9
+                        send_town('Atacar ⚔')
+                    else:
+                        print('vv Evitando o confronto com ' +
+                              enemy['name'] + ' Lvl ' + str(enemy['lvl']))
+                        # print(event.stringify())
+                        send_town('/rMatch')
+                elif msg.startswith('Ataque Normal'):
+                    enemy = get_enemy(msg)
+                    if enemy['lvl'] <= city['lvl']:
+                        print('^^ Atacando ' +
+                              enemy['name'] + ' Lvl ' + str(enemy['lvl']))
+                        MENU = 9
+                        send_town('Atacar ⚔')
+                    else:
+                        print('vv Evitando o confronto com ' +
+                              enemy['name'] + ' Lvl ' + str(enemy['lvl']))
+                    # print(event.stringify())
+                        send_town('/nMatch')
+                elif ['DERROTA', 'VITÓRIA'] in msg:
+                    print(msg)
+                    MENU = 4
+                else:
+                    print(event.stringify())
+
         else:
-            sprint('[User #{} sent {}]'.format(
-                update_object.user_id, update_object.message))
-    elif isinstance(update_object, UpdateShortChatMessage):
-        if update_object.out:
-            sprint('You sent {} to chat #{}'.format(
-                update_object.message, update_object.chat_id))
-        else:
-            sprint('[Chat #{}, user #{} sent {}]'.format(
-                   update_object.chat_id, update_object.from_id,
-                   update_object.message))
-    elif isinstance(update_object, Updates):
-        if len(update_object.updates) > 0:
-            if isinstance(update_object.updates[0], UpdateNewMessage):
-                _from = update_object.updates[0].message.from_id
-                _msg = update_object.updates[0].message.message
-                sprint('User {} sent \n{}'.format(_from, _msg))
-                # BATALHA
-                if LAST_COMM == Comms.BATTLE.value:
-                    m = re.search('\(Lvl ([0-9]*)\)', _msg)
-                    if m != None:
-                        if _msg.find("Inimigo Encontrado") > -1 and int(m.group(1)) < nivelAlvo:
-                            if valor("Comida", _msg) > qtdRecursoAlvo or \
-                                    valor("Madeira", _msg) > qtdRecursoAlvo or \
-                                    valor("Ouro", _msg) > qtdRecursoAlvo:
-                                if valor("Ouro", _msg) == valor("Madeira", _msg) or \
-                                        valor("Madeira", _msg) == valor("Comida", _msg) or \
-                                        valor("Ouro", _msg) == valor("Comida", _msg):
-                                    doAttack = True
-
-                    doSearchOpponent = True
-
-                # MENU PRINCIPAL - level - armazem - producao
-                elif LAST_COMM == Comms.MENU.value:
-                    # level
-                    m = re.search('\(Lvl ([0-9]*)\)', _msg)
-                    myLvl = int(m.group(1))
-                    nivelAlvo = myLvl + 2
-                    sprint('My LEVEL = {}'.format(myLvl))
-                    # armazém - produção                    
-                    myWood = detect_resource("Madeira", _msg)
-                    myGold = detect_resource("Ouro", _msg)
-                    myFood = detect_resource("Comida", _msg)
-
-                    NEXT_COMM = Comms.BUILD.value
-
-                elif LAST_COMM == Comms.BUILD.value:
-                    print("TO DO")
-
-                    NEXT_COMM = ''                    
+            print('!! Mensagem de outra origem : ' + str(from_id))
+            print(event.stringify())
+    except Exception as e:
+        print('!! ============================================================================ !!')
+        print('!! Erro genérico no handler: ' + str(e))
+        print('!! ============================================================================ !!')
 
 
-CLIENT.add_update_handler(update_handler)
+send_town('Menu 📜')
 
-
-# MAIN LOOP
-while True:
-    WAIT_TIME = random.randrange(1,10,1)
-    time.sleep(WAIT_TIME)
-
-    if NEXT_COMM != '':
-        LAST_COMM = NEXT_COMM
-        #print("Vai enviar {} para {}".format(NEXT_COMM, BOT_NAME))
-        CLIENT.send_message(BOT_NAME, NEXT_COMM)
-    else:
-        print("Esperando a grama crescer - SEM COMANDO DEFINIDO")
-        
-
-    """
-    if doAttack:
-        doAttack=False
-        tempoAttack=random.randrange(601, 620, 1) # tempo aleatório para o próximo ataque
-        print("Enviando comando")
-        CLIENT.send_message('@IdleTownBot', 'Atacar ⚔')
-        
-    if tempoAttack <= 0 and doSearchOpponent:
-        if random.randrange(1, 7, 1) % 3 == 0: # simula se pesquisa um novo oponente ou aguarda mais um pouco
-            doSearchOpponent=False
-            CLIENT.send_message('@IdleTownBot', 'Jogador Aleatório')
-    elif tempoAttack > 0:  # aguardando a próxima luta, decrementa o contador
-        if tempoAttack % 30 == 0:
-            print("Aguardando a próxima luta ...")
-        tempoAttack=tempoAttack-1
-    """
+client.idle()
