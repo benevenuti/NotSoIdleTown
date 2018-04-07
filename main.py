@@ -8,12 +8,10 @@ import random
 import _thread
 import config
 
-from decimal import Decimal
 from collections import OrderedDict
 
 api_id = config.api_id
 api_hash = config.api_hash
-phone_number = config.phone_number
 
 IDLE_TOWN_ID = 271141703
 
@@ -58,7 +56,7 @@ def get_city(m):
          'wood_cst', 'wood_mlt', 'gold_cst', 'gold_mlt']
     r = {}
     for i, g in enumerate(l):
-        r[g] = s.group(i+1)
+        r[g] = s.group(i + 1)
         if not (g in ['name']):
             try:
                 r[g] = int(r[g])
@@ -83,7 +81,7 @@ def get_build(obj, m):
     cst = s.group(2)
     mlt = s.group(3)
     cmd = s.group(4)
-    return {'obj': obj, 'lvl': int(lvl), 'cst': Decimal(cst) * Decimal(units.u[mlt]), 'cst_s': cst + ' ' + mlt, 'cmd': cmd}
+    return {'obj': obj, 'lvl': int(lvl), 'cst': (units.u[mlt] / 100) * int(float(cst) * 100), 'cst_s': cst + ' ' + mlt, 'cmd': cmd}
 
 
 def get_equip(obj, m):
@@ -93,21 +91,21 @@ def get_equip(obj, m):
     cst = s.group(2)
     mlt = s.group(3)
     cmd = s.group(4)
-    return {'obj': obj, 'lvl': int(lvl), 'cst': Decimal(cst) * Decimal(units.u[mlt]), 'cst_s': cst + ' ' + mlt, 'cmd': cmd}
+    return {'obj': obj, 'lvl': int(lvl), 'cst': (units.u[mlt] / 100) * int(float(cst) * 100), 'cst_s': cst + ' ' + mlt, 'cmd': cmd}
 
 
 def get_wood(m):
     s = re.search('(?s)Você tem \(([0-9.]+) ([A-Z]*)🌳\) de Madeira', m)
     v = s.group(1)
     t = s.group(2)
-    return {'cst': Decimal(float(v) * units.u[t]), 'cst_s': v + ' ' + t}
+    return {'cst': (units.u[t] * int(round(float(v) * 100))) / 100, 'cst_s': v + ' ' + t}
 
 
 def get_gold(m):
     s = re.search('(?s)Você tem \(([0-9.]+) ([A-Z]*)💰\) de Ouro', m)
     v = s.group(1)
     t = s.group(2)
-    return {'cst': Decimal(float(v) * units.u[t]), 'cst_s': v + ' ' + t}
+    return {'cst': (units.u[t] * int(round(float(v) * 100))) / 100, 'cst_s': v + ' ' + t}
 
 
 def get_enemy(m):
@@ -121,26 +119,7 @@ def get_enemy(m):
     return {'name': name, 'lvl': int(lvl), 'rank': int(rank), 'ID': ID, 'clan': clan}
 
 
-@client.on(events.NewMessage())
-def my_all_handler(event):
-    global MENU
-    global IDLE_TOWN_ID
-
-    from_id = -1
-
-    if MENU == 9:
-        try:
-            from_id = event.message.from_id
-        except Exception as e:
-            print('!! Erro ao identificar from_id: ' + str(e))
-            return
-
-        if IDLE_TOWN_ID == from_id:
-            msg = event.message.message
-            print(msg)
-
-
-@client.on(events.NewMessage(incoming=True, chats=('Idle Town')))
+@client.on(events.NewMessage(incoming=True))
 def my_event_handler(event):
 
     global city
@@ -157,27 +136,36 @@ def my_event_handler(event):
 
     try:
         from_id = event.message.from_id
-    except Exception as e:
-        print('!! Erro ao identificar from_id: ' + str(e))
+    except:
+        print("!! ============================================================================ !!")
+        print("!! Erro ao identificar o from _id:", sys.exc_info()[0])
+        print("!! ============================================================================ !!")
 
     try:
         if IDLE_TOWN_ID == from_id:
-
             msg = event.message.message
-            # print(event.stringify())
+            if 'Você está enviando muitas mensagens por segundo' in msg:
+                send_town('Menu 📜')
 
-            if MENU <= 0:
-
+            ###
+            # =============================================================================================================================
+            # MENU 0 ======================================================================================================================
+            # =============================================================================================================================
+            ###
+            elif MENU <= 0:
                 city = get_city(msg)
-
                 print(city)
-
                 if (city['name'] == ''):
-                    send_town('Menu 📜')
                     MENU = 0
+                    send_town('Menu 📜')
                 else:
-                    send_town('Construções 🏢')
                     MENU = 1
+                    send_town('Construções 🏢')
+            ###
+            # =============================================================================================================================
+            # MENU 1 ======================================================================================================================
+            # =============================================================================================================================
+            ###
             elif MENU == 1:
                 if 'melhorado com Sucesso' in msg:
                     build_count += 1
@@ -198,17 +186,21 @@ def my_event_handler(event):
                     up_obj = next(iter(build.items()))[1]
                     cost = up_obj['cst']
 
-                    if wood['cst'].compare(cost) == Decimal('1'):
+                    if wood['cst'] >= cost:
                         cmd = up_obj['cmd']
                         print('== Melhorando : ' + up_obj['obj'] + ' ' +
-                              up_obj['cst_s'] + ' para Lvl ' + str(up_obj['lvl']+1))
+                              up_obj['cst_s'] + ' para Lvl ' + str(up_obj['lvl'] + 1))
                         send_town(cmd)
                     else:
                         print('== Pouca madeira: ' +
                               up_obj['obj'] + ' ^^ ' + up_obj['cst_s'] + ' > ' + wood['cst_s'])
                         MENU = 2
                         send_town('Menu 📜')
-
+            ###
+            # =============================================================================================================================
+            # MENU 2 ======================================================================================================================
+            # =============================================================================================================================
+            ###
             elif MENU == 2:
                 if 'Cidade ' + city['name'] in msg:
                     send_town('Herói 💂')
@@ -233,16 +225,30 @@ def my_event_handler(event):
                     up_obj = next(iter(equip.items()))[1]
                     cost = up_obj['cst']
 
-                    if gold['cst'].compare(cost) == Decimal('1'):
+                    if gold['cst'] >= cost:
                         cmd = up_obj['cmd']
                         print('== Melhorando : ' + up_obj['obj'] + ' ' +
-                              up_obj['cst_s'] + ' para Lvl ' + str(up_obj['lvl']+1))
+                              up_obj['cst_s'] + ' para Lvl ' + str(up_obj['lvl'] + 1))
                         send_town(cmd)
                     else:
                         print(
                             '== Pouco ouro: ' + up_obj['obj'] + ' ^^ ' + up_obj['cst_s'] + ' > ' + gold['cst_s'])
                         MENU = 3
+                        #print('Cash: {0}', format('%.0f', gold['cst'])) )
+                        #print('Cost: {0}', format('%.0f', cost) )
                         send_town('Menu 📜')
+                else:
+                    print(
+                        "II ============================================================================ II")
+                    print('II Mensagem não mapeada no menu ' + str(MENU) + ': ')
+                    print(msg)
+                    print(
+                        "II ============================================================================ II")
+            ###
+            # =============================================================================================================================
+            # MENU 3 ======================================================================================================================
+            # =============================================================================================================================
+            ###
             elif MENU == 3:
                 # print(msg)
                 if 'Cidade ' + city['name'] in msg:
@@ -254,14 +260,30 @@ def my_event_handler(event):
                         MENU = 4
                         print('vv Pouca energia (' +
                               str(city['energy']) + '), não vou enfrentar chefão')
-                        send_town('Batalhar ⚔')
+                        send_town('Menu 📜')
                 elif 'Chefões' in msg:
-                    MENU = 9
+                    MENU = 3
                     send_town('Atacar Max')
                 elif 'Você matou o chefão' in msg:
+                    print('== Chefão morto :D , indo gastar seu ouro ')
+                    MENU = 2
+                    send_town('Menu 📜')
+                elif 'Atacado' in msg:
+                    print('== Chefão sobreviveu, indo para confrontos ')
                     MENU = 4
-                    send_town('Batalhar ⚔')
-
+                    send_town('Menu 📜')
+                else:
+                    print(
+                        "II ============================================================================ II")
+                    print('II Mensagem não mapeada no menu ' + str(MENU) + ': ')
+                    print(msg)
+                    print(
+                        "II ============================================================================ II")
+            ###
+            # =============================================================================================================================
+            # MENU 4 ======================================================================================================================
+            # =============================================================================================================================
+            ###
             elif MENU == 4:
                 # print(msg)
                 if 'Cidade ' + city['name'] in msg:
@@ -272,17 +294,17 @@ def my_event_handler(event):
                     else:
                         MENU = 0
                         print('vv Pouca stamina (' +
-                              str(city['energy']) + '), não vou entrar na arena')
+                              str(city['stamina']) + '), não vou entrar na arena')
                         print('== HALT')
                 elif msg.startswith('Arena\n'):
                     c = random.choice(['/rMatch', '/nMatch'])
                     send_town(c)
                 elif msg.startswith('Ataque Ranqueado'):
                     enemy = get_enemy(msg)
-                    if enemy['lvl'] <= city['lvl']:
+                    if enemy['lvl'] <= city['lvl'] + 1:
                         print('^^ Atacando ' +
                               enemy['name'] + ' Lvl ' + str(enemy['lvl']))
-                        MENU = 9
+                        #MENU = 4
                         send_town('Atacar ⚔')
                     else:
                         print('vv Evitando o confronto com ' +
@@ -291,29 +313,44 @@ def my_event_handler(event):
                         send_town('/rMatch')
                 elif msg.startswith('Ataque Normal'):
                     enemy = get_enemy(msg)
-                    if enemy['lvl'] <= city['lvl']:
+                    if enemy['lvl'] <= city['lvl'] + 1:
                         print('^^ Atacando ' +
                               enemy['name'] + ' Lvl ' + str(enemy['lvl']))
-                        MENU = 9
+                        #MENU = 4
                         send_town('Atacar ⚔')
                     else:
                         print('vv Evitando o confronto com ' +
                               enemy['name'] + ' Lvl ' + str(enemy['lvl']))
-                    # print(event.stringify())
                         send_town('/nMatch')
-                elif ['DERROTA', 'VITÓRIA'] in msg:
-                    print(msg)
-                    MENU = 4
+
+                elif 'DERROTA' in msg:
+                    print('== Derrota :( :(')
+                    #MENU = 4
+                    send_town('Menu 📜')
+                elif 'VITÓRIA' in msg:
+                    print('== Vitória :) :) ')
+                    #MENU = 4
+                    send_town('Menu 📜')
+                elif 'Sem pontos de Stamina suficientes' in msg:
+                    MENU = 0
+                    print('vv Sem pontos de Stamina suficientes')
+                    print('== HALT')
                 else:
-                    print(event.stringify())
+                    print(
+                        "II ============================================================================ II")
+                    print('II Mensagem não mapeada no menu ' + str(MENU) + ': ')
+                    print(msg)
+                    print(
+                        "II ============================================================================ II")
 
         else:
             print('!! Mensagem de outra origem : ' + str(from_id))
             print(event.stringify())
-    except Exception as e:
-        print('!! ============================================================================ !!')
-        print('!! Erro genérico no handler: ' + str(e))
-        print('!! ============================================================================ !!')
+    except:
+        print("!! ============================================================================ !!")
+        print("!! Erro genérico em my_event_handler ", sys.exc_info()[0])
+        print("!! ============================================================================ !!")
+        print(event.message.stringify())
 
 
 send_town('Menu 📜')
