@@ -10,6 +10,10 @@ import config
 
 from collections import OrderedDict
 
+from decimal import Decimal, getcontext
+
+getcontext().prec = 256
+
 api_id = config.api_id
 api_hash = config.api_hash
 
@@ -81,7 +85,7 @@ def get_build(obj, m):
     cst = s.group(2)
     mlt = s.group(3)
     cmd = s.group(4)
-    return {'obj': obj, 'lvl': int(lvl), 'cst': (units.u[mlt] / 100) * int(float(cst) * 100), 'cst_s': cst + ' ' + mlt, 'cmd': cmd}
+    return {'obj': obj, 'lvl': int(lvl), 'cst': int(Decimal(units.u[mlt]) / Decimal(100) * int(float(cst) * 100)), 'cst_s': cst + ' ' + mlt, 'cmd': cmd}
 
 
 def get_equip(obj, m):
@@ -91,21 +95,21 @@ def get_equip(obj, m):
     cst = s.group(2)
     mlt = s.group(3)
     cmd = s.group(4)
-    return {'obj': obj, 'lvl': int(lvl), 'cst': (units.u[mlt] / 100) * int(float(cst) * 100), 'cst_s': cst + ' ' + mlt, 'cmd': cmd}
+    return {'obj': obj, 'lvl': int(lvl), 'cst': int(Decimal(units.u[mlt]) / Decimal(100) * int(float(cst) * 100)), 'cst_s': cst + ' ' + mlt, 'cmd': cmd}
 
 
 def get_wood(m):
     s = re.search('(?s)Você tem \(([0-9.]+) ([A-Z]*)🌳\) de Madeira', m)
     v = s.group(1)
     t = s.group(2)
-    return {'cst': (units.u[t] * int(round(float(v) * 100))) / 100, 'cst_s': v + ' ' + t}
+    return {'cst': int(Decimal(units.u[t]) / Decimal(100) * int(float(v) * 100)), 'cst_s': v + ' ' + t}
 
 
 def get_gold(m):
     s = re.search('(?s)Você tem \(([0-9.]+) ([A-Z]*)💰\) de Ouro', m)
     v = s.group(1)
     t = s.group(2)
-    return {'cst': (units.u[t] * int(round(float(v) * 100))) / 100, 'cst_s': v + ' ' + t}
+    return {'cst': int(Decimal(units.u[t]) / Decimal(100) * int(float(v) * 100)), 'cst_s': v + ' ' + t}
 
 
 def get_enemy(m):
@@ -194,6 +198,8 @@ def my_event_handler(event):
                     else:
                         print('== Pouca madeira: ' +
                               up_obj['obj'] + ' ^^ ' + up_obj['cst_s'] + ' > ' + wood['cst_s'])
+                        #print('Cash: ' + str(wood['cst']))
+                        #print('Cost: ' + str(cost))
                         MENU = 2
                         send_town('Menu 📜')
             ###
@@ -234,8 +240,8 @@ def my_event_handler(event):
                         print(
                             '== Pouco ouro: ' + up_obj['obj'] + ' ^^ ' + up_obj['cst_s'] + ' > ' + gold['cst_s'])
                         MENU = 3
-                        #print('Cash: {0}', format('%.0f', gold['cst'])) )
-                        #print('Cost: {0}', format('%.0f', cost) )
+                        #print('Cash: ' + str(gold['cst']))
+                        #print('Cost: ' + str(cost))
                         send_town('Menu 📜')
                 else:
                     print(
