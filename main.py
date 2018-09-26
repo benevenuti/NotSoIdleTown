@@ -260,7 +260,7 @@ def my_event_handler(event):
                 if 'Cidade ' + city['name'] in msg:
                     send_town('Batalhar ⚔')
                 elif 'Batalhas\n/arena' in msg:
-                    if city['energy'] >= 90:
+                    if city['energy'] >= 10:
                         send_town('/bosses')
                     else:
                         MENU = 4
