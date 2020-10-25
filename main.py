@@ -1,5 +1,4 @@
 from telethon import TelegramClient, events
-from telethon.tl.types import UpdateShortChatMessage, UpdateShortMessage, Updates, UpdateNewMessage
 import re
 import time
 import units
@@ -7,6 +6,7 @@ import sys
 import random
 import _thread
 import config
+import datetime
 
 from collections import OrderedDict
 
@@ -37,20 +37,30 @@ build_count = 0
 equip_count = 0
 
 
+def myPrint(*args):
+    print(getDate(), *args)
+
+
+def getDate():
+    ts = time.time()
+    st = datetime.datetime.fromtimestamp(ts).strftime('[%Y-%m-%d %H:%M:%S] ')
+    return st
+
+
 def re_init(a, b):
     global MENU
     while 1:
         t = random.randrange(120, 180)
         time.sleep(t)
         MENU = 0
-        print('== Acordando depois de dormir por ' + str(t) + ' segundos...')
+        myPrint('== Acordando depois de dormir por ' + str(t) + ' segundos...')
         send_town('Menu 📜')
 
 
 try:
     _thread.start_new_thread(re_init, (0, 0))
 except Exception as e:
-    print("!! Não possível iniciar a thread : " + str(e))
+    myPrint("!! Não possível iniciar a thread : " + str(e))
 
 
 def get_city(m):
@@ -71,11 +81,11 @@ def get_city(m):
 
 def send_town(msg):
     try:
-        print('>> ' + msg)
-        time.sleep(random.randrange(1, 2))
+        myPrint('>> ' + msg)
+        time.sleep(random.randrange(15, 20) / 10)
         client.send_message('@IdleTownBot', msg)
     except Exception as e:
-        print('!! Não foi possível enviar a mensagem ' + msg + ' : ' + str(e))
+        myPrint('!! Não foi possível enviar a mensagem ' + msg + ' : ' + str(e))
 
 
 def get_build(obj, m):
@@ -141,9 +151,9 @@ def my_event_handler(event):
     try:
         from_id = event.message.from_id
     except:
-        print("!! ============================================================================ !!")
-        print("!! Erro ao identificar o from _id:", sys.exc_info()[0])
-        print("!! ============================================================================ !!")
+        myPrint("!! ============================================================================ !!")
+        myPrint("!! Erro ao identificar o from _id: ", sys.exc_info()[0])
+        myPrint("!! ============================================================================ !!")
 
     try:
         if IDLE_TOWN_ID == from_id:
@@ -158,7 +168,7 @@ def my_event_handler(event):
             ###
             elif MENU <= 0:
                 city = get_city(msg)
-                print(city)
+                myPrint(city)
                 if (city['name'] == ''):
                     MENU = 0
                     send_town('Menu 📜')
@@ -192,14 +202,14 @@ def my_event_handler(event):
 
                     if wood['cst'] >= cost:
                         cmd = up_obj['cmd']
-                        print('== Melhorando : ' + up_obj['obj'] + ' ' +
-                              up_obj['cst_s'] + ' para Lvl ' + str(up_obj['lvl'] + 1))
+                        myPrint('== Melhorando : ' + up_obj['obj'] + ' ' +
+                                up_obj['cst_s'] + ' para Lvl ' + str(up_obj['lvl'] + 1))
                         send_town(cmd)
                     else:
-                        print('== Pouca madeira: ' +
-                              up_obj['obj'] + ' ^^ ' + up_obj['cst_s'] + ' > ' + wood['cst_s'])
-                        #print('Cash: ' + str(wood['cst']))
-                        #print('Cost: ' + str(cost))
+                        myPrint('== Pouca madeira: ' +
+                                up_obj['obj'] + ' ^^ ' + up_obj['cst_s'] + ' > ' + wood['cst_s'])
+                        # myPrint('Cash: ' + str(wood['cst']))
+                        # myPrint('Cost: ' + str(cost))
                         MENU = 2
                         send_town('Menu 📜')
             ###
@@ -233,22 +243,22 @@ def my_event_handler(event):
 
                     if gold['cst'] >= cost:
                         cmd = up_obj['cmd']
-                        print('== Melhorando : ' + up_obj['obj'] + ' ' +
-                              up_obj['cst_s'] + ' para Lvl ' + str(up_obj['lvl'] + 1))
+                        myPrint('== Melhorando : ' + up_obj['obj'] + ' ' +
+                                up_obj['cst_s'] + ' para Lvl ' + str(up_obj['lvl'] + 1))
                         send_town(cmd)
                     else:
-                        print(
+                        myPrint(
                             '== Pouco ouro: ' + up_obj['obj'] + ' ^^ ' + up_obj['cst_s'] + ' > ' + gold['cst_s'])
                         MENU = 3
-                        #print('Cash: ' + str(gold['cst']))
-                        #print('Cost: ' + str(cost))
+                        # myPrint('Cash: ' + str(gold['cst']))
+                        # myPrint('Cost: ' + str(cost))
                         send_town('Menu 📜')
                 else:
-                    print(
+                    myPrint(
                         "II ============================================================================ II")
-                    print('II Mensagem não mapeada no menu ' + str(MENU) + ': ')
-                    print(msg)
-                    print(
+                    myPrint('II Mensagem não mapeada no menu ' + str(MENU) + ': ')
+                    myPrint(msg)
+                    myPrint(
                         "II ============================================================================ II")
             ###
             # =============================================================================================================================
@@ -256,7 +266,7 @@ def my_event_handler(event):
             # =============================================================================================================================
             ###
             elif MENU == 3:
-                # print(msg)
+                # myPrint(msg)
                 if 'Cidade ' + city['name'] in msg:
                     send_town('Batalhar ⚔')
                 elif 'Batalhas\n/arena' in msg:
@@ -264,26 +274,26 @@ def my_event_handler(event):
                         send_town('/bosses')
                     else:
                         MENU = 4
-                        print('vv Pouca energia (' +
-                              str(city['energy']) + '), não vou enfrentar chefão')
+                        myPrint('vv Pouca energia (' +
+                                str(city['energy']) + '), não vou enfrentar chefão')
                         send_town('Menu 📜')
                 elif 'Chefões' in msg:
                     MENU = 3
                     send_town('Atacar Max')
                 elif 'Você matou o chefão' in msg:
-                    print('== Chefão morto :D , indo gastar seu ouro ')
+                    myPrint('== Chefão morto :D , indo gastar seu ouro ')
                     MENU = 2
                     send_town('Menu 📜')
                 elif 'Atacado' in msg:
-                    print('== Chefão sobreviveu, indo para confrontos ')
+                    myPrint('== Chefão sobreviveu, indo para confrontos ')
                     MENU = 4
                     send_town('Menu 📜')
                 else:
-                    print(
+                    myPrint(
                         "II ============================================================================ II")
-                    print('II Mensagem não mapeada no menu ' + str(MENU) + ': ')
-                    print(msg)
-                    print(
+                    myPrint('II Mensagem não mapeada no menu ' + str(MENU) + ': ')
+                    myPrint(msg)
+                    myPrint(
                         "II ============================================================================ II")
             ###
             # =============================================================================================================================
@@ -291,7 +301,7 @@ def my_event_handler(event):
             # =============================================================================================================================
             ###
             elif MENU == 4:
-                # print(msg)
+                # myPrint(msg)
                 if 'Cidade ' + city['name'] in msg:
                     send_town('Batalhar ⚔')
                 elif 'Batalhas\n/arena' in msg:
@@ -299,64 +309,64 @@ def my_event_handler(event):
                         send_town('/arena')
                     else:
                         MENU = 0
-                        print('vv Pouca stamina (' +
-                              str(city['stamina']) + '), não vou entrar na arena')
-                        print('== HALT')
+                        myPrint('vv Pouca stamina (' +
+                                str(city['stamina']) + '), não vou entrar na arena')
+                        myPrint('== HALT')
                 elif msg.startswith('Arena\n'):
                     c = random.choice(['/rMatch', '/nMatch'])
                     send_town(c)
                 elif msg.startswith('Ataque Ranqueado'):
                     enemy = get_enemy(msg)
                     if enemy['lvl'] <= city['lvl'] + 1:
-                        print('^^ Atacando ' +
-                              enemy['name'] + ' Lvl ' + str(enemy['lvl']))
+                        myPrint('^^ Atacando ' +
+                                enemy['name'] + ' Lvl ' + str(enemy['lvl']))
                         #MENU = 4
                         send_town('Atacar ⚔')
                     else:
-                        print('vv Evitando o confronto com ' +
-                              enemy['name'] + ' Lvl ' + str(enemy['lvl']))
-                        # print(event.stringify())
+                        myPrint('vv Evitando o confronto com ' +
+                                enemy['name'] + ' Lvl ' + str(enemy['lvl']))
+                        # myPrint(event.stringify())
                         send_town('/rMatch')
                 elif msg.startswith('Ataque Normal'):
                     enemy = get_enemy(msg)
                     if enemy['lvl'] <= city['lvl'] + 1:
-                        print('^^ Atacando ' +
-                              enemy['name'] + ' Lvl ' + str(enemy['lvl']))
+                        myPrint('^^ Atacando ' +
+                                enemy['name'] + ' Lvl ' + str(enemy['lvl']))
                         #MENU = 4
                         send_town('Atacar ⚔')
                     else:
-                        print('vv Evitando o confronto com ' +
-                              enemy['name'] + ' Lvl ' + str(enemy['lvl']))
+                        myPrint('vv Evitando o confronto com ' +
+                                enemy['name'] + ' Lvl ' + str(enemy['lvl']))
                         send_town('/nMatch')
 
                 elif 'DERROTA' in msg:
-                    print('== Derrota :( :(')
+                    myPrint('== Derrota :( :(')
                     #MENU = 4
                     send_town('Menu 📜')
                 elif 'VITÓRIA' in msg:
-                    print('== Vitória :) :) ')
+                    myPrint('== Vitória :) :) ')
                     #MENU = 4
                     send_town('Menu 📜')
                 elif 'Sem pontos de Stamina suficientes' in msg:
                     MENU = 0
-                    print('vv Sem pontos de Stamina suficientes')
-                    print('== HALT')
+                    myPrint('vv Sem pontos de Stamina suficientes')
+                    myPrint('== HALT')
                 else:
-                    print(
+                    myPrint(
                         "II ============================================================================ II")
-                    print('II Mensagem não mapeada no menu ' + str(MENU) + ': ')
-                    print(msg)
-                    print(
+                    myPrint('II Mensagem não mapeada no menu ' + str(MENU) + ': ')
+                    myPrint(msg)
+                    myPrint(
                         "II ============================================================================ II")
 
         else:
-            print('!! Mensagem de outra origem : ' + str(from_id))
-            print(event.stringify())
+            myPrint('!! Mensagem de outra origem : ' + str(from_id))
+            myPrint(event.stringify())
     except:
-        print("!! ============================================================================ !!")
-        print("!! Erro genérico em my_event_handler ", sys.exc_info()[0])
-        print("!! ============================================================================ !!")
-        print(event.message.stringify())
+        myPrint("!! ============================================================================ !!")
+        myPrint("!! Erro genérico em my_event_handler ", sys.exc_info()[0].str())
+        myPrint("!! ============================================================================ !!")
+        myPrint(event.message.stringify())
 
 
 send_town('Menu 📜')
